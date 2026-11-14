@@ -118,7 +118,8 @@ function renderPickers(){
   const h=document.createElement("h3");h.textContent=label;el.appendChild(h);
   ITEMS.filter(i=>i.cat===cat).forEach(i=>{
    const r=document.createElement("div");r.className="row";
-   r.innerHTML=`<div class="item">${i.name} <span class="price">${money(i.price)}</span><br><span class="left">${remaining(i)} of ${i.qty} left</span></div>`;
+   const soldOut=remaining(i)===0;
+   r.innerHTML=`<div class="item"><span${soldOut?' class="strike"':""}>${i.name} <span class="price">${money(i.price)}</span></span><br><span class="left">${remaining(i)} of ${i.qty} left</span></div>`;
    const st=document.createElement("div");st.className="stepper";
    const minus=document.createElement("button");minus.textContent="-";minus.disabled=picks[i.id]<=0;
    minus.onclick=()=>{picks[i.id]--;render()};
