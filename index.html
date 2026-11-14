@@ -43,14 +43,22 @@ label{font-weight:700;display:block;margin-bottom:6px}input[type=text]{width:100
 <div class="card"><h2>Step 1 — Pay with Venmo</h2>
 <p>Pay <b>Janus</b> at <b>$janus-patel</b> (Venmo: @janus-patel), note: <b id="notePreview">Cooper's Hawk: your items</b></p>
 <button class="btn venmo" id="payBtn" disabled>Pay with Venmo</button>
-<h2 style="margin-top:22px">Step 2 — Send your payment details</h2>
-<p>Open the pre-filled payment form in your own browser, check the details, then <span class="hl" style="display:inline;padding:2px 6px">click Submit</span> on the form to record your payment.</p>
+<p class="note">One click does it all — paying also sends your payment details automatically, so there's no second step.</p>
+<h2 style="margin-top:22px">Step 2 — Send your payment details (only if needed)</h2>
+<p>The Pay button already sends your details automatically. Only use this if it didn't go through — it opens the pre-filled form so you can check the details and <span class="hl" style="display:inline;padding:2px 6px">click Submit</span> on the form.</p>
 <button class="btn formbtn" id="formBtn" disabled>Open the payment form</button>
 <button class="btn" id="copyBtn" disabled style="background:#fff;border:1px solid #c9b8a3;color:#222">Copy payment details instead</button>
 <p class="note" id="formNote"></p><p class="err" id="payErr"></p></div>
 <div class="card"><h2>Paid so far</h2><div id="paidList"><p class="note">No payments recorded yet.</p></div></div>
 <p class="note">Not pickers: the comped Sweet Corn &amp; Tomato Risottos and Celebration Cr&egrave;me Br&ucirc;l&eacute;e, and the prepaid wine-club Wine / Glass of the Month — already off via the $127.47 discount. Water is $0.00 and not a picker.</p>
 </div>
+<iframe name="bgFrame" style="display:none" title="form submit"></iframe>
+<form id="bgForm" method="POST" action="https://docs.google.com/forms/d/e/1FAIpQLSeDeYlIslOh2b--BsNEpG3afkBwEjZBvT5iohbjhOQnaMhzyw/formResponse" target="bgFrame" style="display:none">
+<input type="hidden" name="entry.418583708" id="bgName">
+<input type="hidden" name="entry.768873288" id="bgDetails">
+<input type="hidden" name="entry.1144062829" id="bgTotal">
+<input type="hidden" name="fvv" value="1">
+</form>
 <script>
 // ===== CONFIG =====
 // FORM_PREFILL_URL: the Google Form's pre-filled link template.
@@ -96,6 +104,15 @@ function venmoItemName(n){return n.replace(/^R\/N\s+/,"").replace(/\s*\(Rocks\)$
 function venmoNote(sel){return "Cooper's Hawk: "+sel.map(x=>`${x.qty}x ${venmoItemName(x.name)}`).join(", ")}
 function paymentDetails(name,sel,c){return ["Name: "+name,"Items: "+sel.map(x=>`${x.qty}x ${x.name} (${money(x.price)})`).join(", "),"Items subtotal: "+money(c.items),"Tax (6.75%): "+money(c.tax),"Tip: "+money(c.tip),"Total paid: "+money(c.total),"Venmo note: "+venmoNote(sel)].join("\n")}
 function buildFormUrl(name,sel,c){return FORM_PREFILL_URL.replace("[Payer name]",encodeURIComponent(name)).replace("[Payment details]",encodeURIComponent(paymentDetails(name,sel,c))).replace("[Total]",encodeURIComponent(c.total.toFixed(2)))}
+// One-click: send the payment details to the Google Form in the background
+// (hidden form POST to the form's response endpoint), so paying also records
+// the payment without a second step.
+function submitDetailsInBackground(name,sel,c){
+ $("bgName").value=name;
+ $("bgDetails").value=paymentDetails(name,sel,c);
+ $("bgTotal").value=c.total.toFixed(2);
+ $("bgForm").submit();
+}
 function renderPickers(){
  const el=$("pickers"); el.innerHTML="";
  [["food","Food"],["drink","Drinks"]].forEach(([cat,label])=>{
@@ -135,9 +152,19 @@ function render(){
 $("payBtn").onclick=()=>{
  const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
  const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
- $("nameErr").textContent="";
+ $("nameErr").textContent=""; $("payErr").textContent="";
  const sel=pickedItems();
  const url=`https://venmo.com/?txn=pay&recipients=${VENMO_USER}&amount=${c.total.toFixed(2)}&note=${encodeURIComponent(venmoNote(sel))}`;
+ // One click: send the payment details to the form in the background first,
+ // so the payment is recorded even if you close the Venmo tab quickly.
+ submitDetailsInBackground(name,sel,c);
+ // Record / merge same-name payment
+ const key=name.toLowerCase(); const ex=paid.find(p=>p.key===key);
+ sel.forEach(p=>{const it=ITEMS.find(i=>i.name===p.name);paidQty[it.id]+=p.qty;});
+ if(ex){ sel.forEach(p=>{const e=ex.items.find(x=>x.name===p.name); if(e)e.qty+=p.qty; else ex.items.push({...p});}); ex.amount=cents(ex.amount+c.total); }
+ else paid.push({key,name,items:sel.map(p=>({...p})),amount:c.total});
+ ITEMS.forEach(i=>picks[i.id]=0); render();
+ $("formNote").textContent="Your payment details were sent automatically — no need to open the form.";
  window.open(url,"_blank");
 };
 $("formBtn").onclick=()=>{
@@ -148,12 +175,8 @@ $("formBtn").onclick=()=>{
  if(FORM_PREFILL_URL){
    window.open(buildFormUrl(name,sel,c),"_blank");
  }
- // Record / merge same-name payment
- const key=name.toLowerCase(); const ex=paid.find(p=>p.key===key);
- sel.forEach(p=>{const it=ITEMS.find(i=>i.name===p.name);paidQty[it.id]+=p.qty;});
- if(ex){ sel.forEach(p=>{const e=ex.items.find(x=>x.name===p.name); if(e)e.qty+=p.qty; else ex.items.push({...p});}); ex.amount=cents(ex.amount+c.total); }
- else paid.push({key,name,items:sel.map(p=>({...p})),amount:c.total});
- ITEMS.forEach(i=>picks[i.id]=0); render();
+ // Step 2 is a backup only: it opens the form but does not record the
+ // payment or clear your picks, so you can still use Pay with Venmo after.
 };
 $("copyBtn").onclick=()=>{
  const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
