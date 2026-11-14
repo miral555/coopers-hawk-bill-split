@@ -96,19 +96,19 @@ const picks = {}; ITEMS.forEach(i=>picks[i.id]=0);
 const paidQty = {}; ITEMS.forEach(i=>paidQty[i.id]=0);
 let paid = []; // {key,name,items:[{name,qty,cat}],amount}
 // Base paid entries baked in from form responses (Muse updates this as payments land)
-paid.push({key:"krystal/miral",name:"Krystal/Miral",items:[{name:"Roasted Vegetables",qty:1,cat:"food",price:7.99},{name:"Caprese Flatbread",qty:1,cat:"food",price:14.99},{name:"Gnocchi alla Vodka",qty:1,cat:"food",price:28.99},{name:"Mary's Potatoes",qty:1,cat:"food",price:6.99},{name:"Kids Mac N Cheese (Fries)",qty:1,cat:"food",price:10.99},{name:"R/N Angels Envy (Rocks)",qty:2,cat:"drink",price:16.00},{name:"Coopers Hawk White glass",qty:1,cat:"drink",price:10.50}],amount:149.54});
+paid.push({key:"krystal/miral",name:"Krystal/Miral",items:[{name:"Roasted Vegetables",qty:1,cat:"food",price:7.99},{name:"Caprese Flatbread",qty:1,cat:"food",price:14.99},{name:"Gnocchi alla Vodka",qty:1,cat:"food",price:28.99},{name:"Mary's Potatoes",qty:1,cat:"food",price:6.99},{name:"Kids Mac N Cheese (Fries)",qty:1,cat:"food",price:10.99},{name:"R/N Angels Envy (Rocks)",qty:2,cat:"drink",price:16.00},{name:"Coopers Hawk White glass",qty:1,cat:"drink",price:10.50}],amount:149.54,method:"will pay in person"});
 paid.forEach(p=>p.items.forEach(x=>{const it=ITEMS.find(i=>i.name===x.name); if(it) paidQty[it.id]+=x.qty;}));
 const $=id=>document.getElementById(id), money=n=>"$"+n.toFixed(2), cents=n=>Math.round(n*100)/100;
 function remaining(i){return i.qty-paidQty[i.id]}
 function pickedItems(){return ITEMS.filter(i=>picks[i.id]>0).map(i=>({name:i.name,qty:picks[i.id],cat:i.cat,price:i.price}))}
 function calc(){const items=pickedItems().reduce((s,p)=>s+p.price*p.qty,0);const tax=cents(items*TAX_RATE);const tip=cents(items/ITEMS_TOTAL*TIP_TOTAL);return{items:cents(items),tax,tip,total:cents(cents(items)+tax+tip)}}
-function paymentDetails(name,sel,c){return ["Name: "+name,"Items: "+sel.map(x=>`${x.qty}x ${x.name} (${money(x.price)})`).join(", "),"Items subtotal: "+money(c.items),"Tax (6.75%): "+money(c.tax),"Tip: "+money(c.tip),"Total paid: "+money(c.total)].join("\n")}
+function paymentDetails(name,sel,c,method){return ["Name: "+name,"Items: "+sel.map(x=>`${x.qty}x ${x.name} (${money(x.price)})`).join(", "),"Items subtotal: "+money(c.items),"Tax (6.75%): "+money(c.tax),"Tip: "+money(c.tip),"Total paid: "+money(c.total),"Payment method: "+method].join("\n")}
 // One-click: send the payment details to the Google Form in the background
 // (hidden form POST to the form's response endpoint), so paying also records
 // the payment without a second step.
-function submitDetailsInBackground(name,sel,c){
+function submitDetailsInBackground(name,sel,c,method){
  $("bgName").value=name;
- $("bgDetails").value=paymentDetails(name,sel,c);
+ $("bgDetails").value=paymentDetails(name,sel,c,method);
  $("bgTotal").value=c.total.toFixed(2);
  $("bgForm").submit();
 }
@@ -136,7 +136,8 @@ function renderPaid(){
   const coversBoth=p.items.some(x=>x.cat==="food")&&p.items.some(x=>x.cat==="drink");
   const cls=coversBoth?' class="strike"':"";
   const items=p.items.map(x=>`${x.qty} ${x.name}`).join(" · ");
-  return `<div class="paid-entry"><span${cls}><b>${p.name}</b><br>${items}</span><span class="amount">${money(p.amount)}</span></div>`;}).join("");
+  const method=p.method?` (${p.method})`:"";
+  return `<div class="paid-entry"><span${cls}><b>${p.name}</b>${method}<br>${items}</span><span class="amount">${money(p.amount)}</span></div>`;}).join("");
  const collected=cents(paid.reduce((s,p)=>s+p.amount,0));
  $("collected").textContent=money(collected); $("togo").textContent=money(cents(ALL_IN-collected));
  const pct=collected/ALL_IN*100;
@@ -151,11 +152,11 @@ function render(){
  const has=c.items>0; $("payBtn").disabled=!has; $("alreadyPaidBtn").disabled=!has; $("inPersonBtn").disabled=!has;
  $("formNote").textContent="";
 }
-function recordPayment(name,sel,c){
+function recordPayment(name,sel,c,method){
  const key=name.toLowerCase(); const ex=paid.find(p=>p.key===key);
  sel.forEach(p=>{const it=ITEMS.find(i=>i.name===p.name);paidQty[it.id]+=p.qty;});
- if(ex){ sel.forEach(p=>{const e=ex.items.find(x=>x.name===p.name); if(e)e.qty+=p.qty; else ex.items.push({...p});}); ex.amount=cents(ex.amount+c.total); }
- else paid.push({key,name,items:sel.map(p=>({...p})),amount:c.total});
+ if(ex){ sel.forEach(p=>{const e=ex.items.find(x=>x.name===p.name); if(e)e.qty+=p.qty; else ex.items.push({...p});}); ex.amount=cents(ex.amount+c.total); ex.method=method; }
+ else paid.push({key,name,items:sel.map(p=>({...p})),amount:c.total,method});
  ITEMS.forEach(i=>picks[i.id]=0); render();
 }
 $("payBtn").onclick=()=>{
@@ -166,26 +167,26 @@ $("payBtn").onclick=()=>{
  const url=`https://venmo.com/?txn=pay&recipients=${VENMO_USER}&amount=${c.total.toFixed(2)}`;
  // One click: send the payment details in the background first, so the
  // payment is recorded even if you close the Venmo tab quickly.
- submitDetailsInBackground(name,sel,c);
- recordPayment(name,sel,c);
+ submitDetailsInBackground(name,sel,c,"Venmo");
+ recordPayment(name,sel,c,"Venmo");
  $("formNote").textContent="Your payment details were sent automatically.";
  window.open(url,"_blank");
 };
 // "Already paid" and "Pay in person": send the payment details in the
 // background (so the payment is recorded) without opening Venmo.
-function recordOnlyHandler(){
+function recordOnlyHandler(method){
  return ()=>{
   const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
   const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
   $("nameErr").textContent=""; $("payErr").textContent="";
   const sel=pickedItems();
-  submitDetailsInBackground(name,sel,c);
-  recordPayment(name,sel,c);
+  submitDetailsInBackground(name,sel,c,method);
+  recordPayment(name,sel,c,method);
   $("formNote").textContent="Done — your payment details were sent.";
  };
 }
-$("alreadyPaidBtn").onclick=recordOnlyHandler();
-$("inPersonBtn").onclick=recordOnlyHandler();
+$("alreadyPaidBtn").onclick=recordOnlyHandler("already paid");
+$("inPersonBtn").onclick=recordOnlyHandler("will pay in person");
 $("name").addEventListener("input",()=>{$("nameErr").textContent=""});
 render();
 </script></body></html>
