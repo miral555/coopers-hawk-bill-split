@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Cooper's Hawk — Split the Bill</title>
+<style>
+*{box-sizing:border-box}body{margin:0;font-family:system-ui,-apple-system,Segoe UI,Roboto,Arial,sans-serif;background:#f6f1ea;color:#222}
+.wrap{max-width:760px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:28px;margin:8px 0 4px}.sub{color:#555;margin:0 0 16px}
+.card{background:#fff;border:1px solid #e3d9cc;border-radius:14px;padding:16px;margin:14px 0;box-shadow:0 1px 4px rgba(0,0,0,.06)}
+.totals{display:flex;gap:12px;flex-wrap:wrap}.totals div{flex:1;min-width:120px;background:#faf6f0;border-radius:10px;padding:10px;text-align:center}
+.totals b{display:block;font-size:18px}
+h2{font-size:19px;margin:6px 0 10px}h3{font-size:16px;margin:16px 0 6px;color:#6b3a1f}
+.row{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:8px 0;border-bottom:1px solid #f0e9df}
+.row:last-child{border-bottom:none}.item{flex:1}.price{color:#555;font-size:14px}.left{color:#888;font-size:13px}
+.stepper{display:flex;align-items:center;gap:8px}.stepper button{width:34px;height:34px;border-radius:50%;border:1px solid #c9b8a3;background:#fff;font-size:18px;cursor:pointer}
+.stepper button:disabled{opacity:.35;cursor:not-allowed}.qty{min-width:20px;text-align:center;font-weight:700}
+label{font-weight:700;display:block;margin-bottom:6px}input[type=text]{width:100%;padding:12px;border:1px solid #c9b8a3;border-radius:10px;font-size:16px}
+.summary{font-size:16px;line-height:1.7}.summary b{float:right}
+.btn{display:block;width:100%;text-align:center;padding:14px;border-radius:12px;border:none;font-size:17px;font-weight:700;cursor:pointer;margin-top:10px;text-decoration:none}
+.venmo{background:#008cff;color:#fff}.formbtn{background:#222;color:#fff}
+.btn:disabled{opacity:.4;cursor:not-allowed}
+.hl{background:#ffe600;color:#000;padding:10px;border-radius:8px;font-weight:700;text-align:center}
+.note{color:#666;font-size:14px}.paid-entry{padding:10px 0;border-bottom:1px solid #eee}
+.strike{text-decoration:line-through}.amount{font-weight:800;float:right}
+.err{color:#b00020;font-weight:600;min-height:20px}
+</style></head><body><div class="wrap">
+<h1>Cooper's Hawk — Split the Bill</h1>
+<p class="sub">Friday, November 13, 2026 &middot; 13 guests &middot; Pay Janus via Venmo</p>
+<div class="card totals">
+<div>Items<b>$419.31</b></div><div>Tax (6.75%)<b>$28.31</b></div><div>Tip<b>$110.00</b></div><div>All-in<b>$557.62</b></div>
+<div>Collected<b id="collected">$0.00</b></div><div>Still to go<b id="togo">$557.62</b></div>
+</div>
+<div class="card"><label for="name">Your name (required)</label>
+<input type="text" id="name" placeholder="Your name" autocomplete="name">
+<p class="err" id="nameErr"></p>
+<h2>Pick what you had</h2><div id="pickers"></div></div>
+<div class="card summary">
+<div>Your items <b id="sItems">$0.00</b></div>
+<div>Tax (6.75%) <b id="sTax">$0.00</b></div>
+<div>Tip share <b id="sTip">$0.00</b></div>
+<div style="border-top:2px solid #222;margin-top:8px;padding-top:8px">YOUR TOTAL <b id="sTotal">$0.00</b></div>
+<p class="note">Tip is split proportionally to your items, same as tax.</p></div>
+<div class="card"><h2>Step 1 — Pay with Venmo</h2>
+<p>Pay <b>Janus</b> at <b>$janus-patel</b> (Venmo: @janus-patel), note: <b id="notePreview">Cooper's Hawk: your items</b></p>
+<button class="btn venmo" id="payBtn" disabled>Pay with Venmo</button>
+<h2 style="margin-top:22px">Step 2 — Send your payment details</h2>
+<p>Open the pre-filled payment form in your own browser, check the details, then <span class="hl" style="display:inline;padding:2px 6px">click Submit</span> on the form to record your payment.</p>
+<button class="btn formbtn" id="formBtn" disabled>Open the payment form</button>
+<button class="btn" id="copyBtn" disabled style="background:#fff;border:1px solid #c9b8a3;color:#222">Copy payment details instead</button>
+<p class="note" id="formNote"></p><p class="err" id="payErr"></p></div>
+<div class="card"><h2>Paid so far</h2><div id="paidList"><p class="note">No payments recorded yet.</p></div></div>
+<p class="note">Not pickers: the comped Sweet Corn &amp; Tomato Risottos and Celebration Cr&egrave;me Br&ucirc;l&eacute;e, and the prepaid wine-club Wine / Glass of the Month — already off via the $127.47 discount. Water is $0.00 and not a picker.</p>
+</div>
+<script>
+// ===== CONFIG =====
+// FORM_PREFILL_URL: the Google Form's pre-filled link template.
+// Placeholders filled in (URL-encoded) when the form is opened:
+// [Payer name] [Payment details] [Total]
+const FORM_PREFILL_URL = "https://docs.google.com/forms/d/e/1FAIpQLSeDeYlIslOh2b--BsNEpG3afkBwEjZBvT5iohbjhOQnaMhzyw/viewform?usp=pp_url&entry.418583708=[Payer name]&entry.768873288=[Payment details]&entry.1144062829=[Total]";
+const VENMO_USER = "janus-patel";
+const ITEMS_TOTAL = 419.31, TAX_RATE = 0.0675, TIP_TOTAL = 110.00, ALL_IN = 557.62;
+const ITEMS = [
+ // Food — 16 pickers
+ {id:"kids-pizza",cat:"food",name:"Kids Cheese Pizza (Fries)",price:10.99,qty:1},
+ {id:"reese-cookie",cat:"food",name:"Reese's Ice Cream Cookie",price:12.99,qty:1},
+ {id:"salmon",cat:"food",name:"Soy Ginger Salmon",price:31.99,qty:1},
+ {id:"roasted-veg",cat:"food",name:"Roasted Vegetables",price:7.99,qty:1},
+ {id:"choc-cake",cat:"food",name:"Chocolate Cake",price:11.99,qty:1},
+ {id:"grouper",cat:"food",name:"Pistachio-Crusted Grouper",price:33.99,qty:1},
+ {id:"caprese-flat",cat:"food",name:"Caprese Flatbread",price:14.99,qty:1},
+ {id:"gnocchi-vodka",cat:"food",name:"Gnocchi alla Vodka",price:28.99,qty:1},
+ {id:"marys-potatoes",cat:"food",name:"Mary's Potatoes",price:6.99,qty:1},
+ {id:"sausage-flat",cat:"food",name:"Italian Sausage & Burrata Flatbread",price:15.99,qty:1},
+ {id:"gnocchi-carb",cat:"food",name:"Gnocchi Carbonara",price:28.99,qty:1},
+ {id:"gnocchi-squash",cat:"food",name:"Gnocchi Butternut Squash",price:23.99,qty:1},
+ {id:"shrimp-scampi",cat:"food",name:"Parmesan Shrimp Scampi",price:27.99,qty:1},
+ {id:"mahi",cat:"food",name:"Parmesan-Crusted Mahi Mahi",price:33.99,qty:1},
+ {id:"kids-mac",cat:"food",name:"Kids Mac N Cheese (Fries)",price:10.99,qty:2},
+ {id:"ae-caprese",cat:"food",name:"AE Caprese Flatbread",price:14.99,qty:1},
+ // Drinks — 6 pickers
+ {id:"angels-envy",cat:"drink",name:"R/N Angels Envy (Rocks)",price:16.00,qty:2},
+ {id:"espresso-classico",cat:"drink",name:"Espresso Classico",price:16.00,qty:1},
+ {id:"old-fashioned",cat:"drink",name:"Old Fashioned",price:11.00,qty:1},
+ {id:"fountain",cat:"drink",name:"Fountain Drink",price:4.99,qty:2},
+ {id:"sauv-blanc",cat:"drink",name:"Sauvignon Blanc glass",price:11.00,qty:1},
+ {id:"ch-white",cat:"drink",name:"Coopers Hawk White glass",price:10.50,qty:1},
+];
+const picks = {}; ITEMS.forEach(i=>picks[i.id]=0);
+const paidQty = {}; ITEMS.forEach(i=>paidQty[i.id]=0);
+let paid = []; // {key,name,items:[{name,qty,cat}],amount}
+const $=id=>document.getElementById(id), money=n=>"$"+n.toFixed(2), cents=n=>Math.round(n*100)/100;
+function remaining(i){return i.qty-paidQty[i.id]}
+function pickedItems(){return ITEMS.filter(i=>picks[i.id]>0).map(i=>({name:i.name,qty:picks[i.id],cat:i.cat,price:i.price}))}
+function calc(){const items=pickedItems().reduce((s,p)=>s+p.price*p.qty,0);const tax=cents(items*TAX_RATE);const tip=cents(items/ITEMS_TOTAL*TIP_TOTAL);return{items:cents(items),tax,tip,total:cents(cents(items)+tax+tip)}}
+function venmoItemName(n){return n.replace(/^R\/N\s+/,"").replace(/\s*\(Rocks\)$/,"")}
+function venmoNote(sel){return "Cooper's Hawk: "+sel.map(x=>`${x.qty}x ${venmoItemName(x.name)}`).join(", ")}
+function paymentDetails(name,sel,c){return ["Name: "+name,"Items: "+sel.map(x=>`${x.qty}x ${x.name} (${money(x.price)})`).join(", "),"Items subtotal: "+money(c.items),"Tax (6.75%): "+money(c.tax),"Tip: "+money(c.tip),"Total paid: "+money(c.total),"Venmo note: "+venmoNote(sel)].join("\n")}
+function buildFormUrl(name,sel,c){return FORM_PREFILL_URL.replace("[Payer name]",encodeURIComponent(name)).replace("[Payment details]",encodeURIComponent(paymentDetails(name,sel,c))).replace("[Total]",encodeURIComponent(c.total.toFixed(2)))}
+function renderPickers(){
+ const el=$("pickers"); el.innerHTML="";
+ [["food","Food"],["drink","Drinks"]].forEach(([cat,label])=>{
+  const h=document.createElement("h3");h.textContent=label;el.appendChild(h);
+  ITEMS.filter(i=>i.cat===cat).forEach(i=>{
+   const r=document.createElement("div");r.className="row";
+   r.innerHTML=`<div class="item">${i.name} <span class="price">${money(i.price)}</span><br><span class="left">${remaining(i)} of ${i.qty} left</span></div>`;
+   const st=document.createElement("div");st.className="stepper";
+   const minus=document.createElement("button");minus.textContent="-";minus.disabled=picks[i.id]<=0;
+   minus.onclick=()=>{picks[i.id]--;render()};
+   const q=document.createElement("span");q.className="qty";q.textContent=picks[i.id];
+   const plus=document.createElement("button");plus.textContent="+";plus.disabled=picks[i.id]>=remaining(i);
+   plus.onclick=()=>{if(picks[i.id]<remaining(i))picks[i.id]++;render()};
+   st.append(minus,q,plus);r.appendChild(st);el.appendChild(r);});
+ });
+}
+function renderPaid(){
+ const el=$("paidList");
+ if(!paid.length){el.innerHTML='<p class="note">No payments recorded yet.</p>';}
+ else el.innerHTML=paid.map(p=>{
+  const coversBoth=p.items.some(x=>x.cat==="food")&&p.items.some(x=>x.cat==="drink");
+  const cls=coversBoth?' class="strike"':"";
+  const items=p.items.map(x=>`${x.qty} ${x.name}`).join(" · ");
+  return `<div class="paid-entry"><span${cls}><b>${p.name}</b><br>${items}</span><span class="amount">${money(p.amount)}</span></div>`;}).join("");
+ const collected=cents(paid.reduce((s,p)=>s+p.amount,0));
+ $("collected").textContent=money(collected); $("togo").textContent=money(cents(ALL_IN-collected));
+}
+function render(){
+ renderPickers(); renderPaid();
+ const c=calc();
+ $("sItems").textContent=money(c.items);$("sTax").textContent=money(c.tax);
+ $("sTip").textContent=money(c.tip);$("sTotal").textContent=money(c.total);
+ const has=c.items>0; $("payBtn").disabled=!has; $("formBtn").disabled=!has; $("copyBtn").disabled=!has;
+ const sel=pickedItems(); $("notePreview").textContent = sel.length ? venmoNote(sel) : "Cooper's Hawk: your items";
+ $("formNote").textContent="";
+}
+$("payBtn").onclick=()=>{
+ const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
+ const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
+ $("nameErr").textContent="";
+ const sel=pickedItems();
+ const url=`https://venmo.com/?txn=pay&recipients=${VENMO_USER}&amount=${c.total.toFixed(2)}&note=${encodeURIComponent(venmoNote(sel))}`;
+ window.open(url,"_blank");
+};
+$("formBtn").onclick=()=>{
+ const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
+ const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
+ $("nameErr").textContent=""; $("payErr").textContent="";
+ const sel=pickedItems();
+ if(FORM_PREFILL_URL){
+   window.open(buildFormUrl(name,sel,c),"_blank");
+ }
+ // Record / merge same-name payment
+ const key=name.toLowerCase(); const ex=paid.find(p=>p.key===key);
+ sel.forEach(p=>{const it=ITEMS.find(i=>i.name===p.name);paidQty[it.id]+=p.qty;});
+ if(ex){ sel.forEach(p=>{const e=ex.items.find(x=>x.name===p.name); if(e)e.qty+=p.qty; else ex.items.push({...p});}); ex.amount=cents(ex.amount+c.total); }
+ else paid.push({key,name,items:sel.map(p=>({...p})),amount:c.total});
+ ITEMS.forEach(i=>picks[i.id]=0); render();
+};
+$("copyBtn").onclick=()=>{
+ const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
+ const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
+ $("nameErr").textContent="";
+ const text=paymentDetails(name,pickedItems(),c);
+ const done=()=>{$("formNote").textContent="Payment details copied."};
+ if(navigator.clipboard&&navigator.clipboard.writeText){navigator.clipboard.writeText(text).then(done,done);}
+ else{const ta=document.createElement("textarea");ta.value=text;document.body.appendChild(ta);ta.select();try{document.execCommand("copy")}catch(e){}ta.remove();done();}
+};
+$("name").addEventListener("input",()=>{$("nameErr").textContent=""});
+render();
+// Self-check (console only): Salmon + 2 Angels Envy should total $85.10
+// with Venmo note "Cooper's Hawk: 1x Soy Ginger Salmon, 2x Angels Envy".
+console.assert(venmoNote([{name:"Soy Ginger Salmon",qty:1},{name:"R/N Angels Envy (Rocks)",qty:2}])==="Cooper's Hawk: 1x Soy Ginger Salmon, 2x Angels Envy","venmo note");
+</script></body></html>
