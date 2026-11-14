@@ -23,12 +23,18 @@ label{font-weight:700;display:block;margin-bottom:6px}input[type=text]{width:100
 .note{color:#666;font-size:14px}.paid-entry{padding:10px 0;border-bottom:1px solid #eee}
 .strike{text-decoration:line-through}.amount{font-weight:800;float:right}
 .err{color:#b00020;font-weight:600;min-height:20px}
+.progress{height:20px;background:#e8e0d4;border-radius:10px;overflow:hidden}
+.progress-fill{height:100%;background:#2e7d32;width:0%;transition:width .3s}
 </style></head><body><div class="wrap">
 <h1>Cooper's Hawk — Split the Bill</h1>
-<p class="sub">Friday, November 13, 2026 &middot; 13 guests &middot; Pay Janus via Venmo</p>
+<p class="sub">Friday, November 13, 2026 &middot; 13 guests &middot; Pay Janus via Venmo &middot; <a href="receipt.jpg" target="_blank">View receipt</a></p>
 <div class="card totals">
 <div>Items<b>$419.31</b></div><div>Tax (6.75%)<b>$28.31</b></div><div>Tip<b>$110.00</b></div><div>All-in<b>$557.62</b></div>
 <div>Collected<b id="collected">$0.00</b></div><div>Still to go<b id="togo">$557.62</b></div>
+</div>
+<div class="card" style="padding:14px 16px">
+<div class="progress"><div class="progress-fill" id="progFill"></div></div>
+<p class="note" style="margin:8px 0 0;text-align:center" id="progText">0% collected · $557.62 still to go</p>
 </div>
 <div class="card"><label for="name">Your name (required)</label>
 <input type="text" id="name" placeholder="Your name" autocomplete="name">
@@ -139,6 +145,9 @@ function renderPaid(){
   return `<div class="paid-entry"><span${cls}><b>${p.name}</b><br>${items}</span><span class="amount">${money(p.amount)}</span></div>`;}).join("");
  const collected=cents(paid.reduce((s,p)=>s+p.amount,0));
  $("collected").textContent=money(collected); $("togo").textContent=money(cents(ALL_IN-collected));
+ const pct=collected/ALL_IN*100;
+ $("progFill").style.width=pct+"%";
+ $("progText").textContent=Math.round(pct)+"% collected · "+money(cents(ALL_IN-collected))+" still to go";
 }
 function render(){
  renderPickers(); renderPaid();
