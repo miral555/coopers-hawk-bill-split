@@ -46,11 +46,10 @@ label{font-weight:700;display:block;margin-bottom:6px}input[type=text]{width:100
 <div>Tip share <b id="sTip">$0.00</b></div>
 <div style="border-top:2px solid #222;margin-top:8px;padding-top:8px">YOUR TOTAL <b id="sTotal">$0.00</b></div>
 <p class="note">Tip is split proportionally to your items, same as tax.</p></div>
-<div class="card"><h2>Step 1 — Pay with Venmo</h2>
-<p>Pay <b>Janus</b> at <b>$janus-patel</b>. One tap pays and sends your details automatically.</p>
-<button class="btn venmo" id="payBtn" disabled>Pay with Venmo</button>
-<h2 style="margin-top:22px">Step 2 — Pay in person</h2>
-<p>Paying Janus in person? Tap below — your details are sent automatically so he can cross you off.</p>
+<div class="card"><h2>Pay Janus</h2>
+<p>Only click one of the 3 options below. Each one sends your payment details automatically.</p>
+<button class="btn venmo" id="payBtn" disabled>Pay with Venmo ($janus-patel)</button>
+<button class="btn formbtn" id="alreadyPaidBtn" disabled>Already paid</button>
 <button class="btn formbtn" id="inPersonBtn" disabled>Pay in person</button>
 <p class="note" id="formNote"></p><p class="err" id="payErr"></p></div>
 <div class="card"><h2>Paid so far</h2><div id="paidList"><p class="note">No payments recorded yet.</p></div></div>
@@ -148,7 +147,7 @@ function render(){
  const c=calc();
  $("sItems").textContent=money(c.items);$("sTax").textContent=money(c.tax);
  $("sTip").textContent=money(c.tip);$("sTotal").textContent=money(c.total);
- const has=c.items>0; $("payBtn").disabled=!has; $("inPersonBtn").disabled=!has;
+ const has=c.items>0; $("payBtn").disabled=!has; $("alreadyPaidBtn").disabled=!has; $("inPersonBtn").disabled=!has;
  $("formNote").textContent="";
 }
 function recordPayment(name,sel,c){
@@ -171,17 +170,21 @@ $("payBtn").onclick=()=>{
  $("formNote").textContent="Your payment details were sent automatically.";
  window.open(url,"_blank");
 };
-$("inPersonBtn").onclick=()=>{
- const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
- const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
- $("nameErr").textContent=""; $("payErr").textContent="";
- const sel=pickedItems();
- // Pay in person: send the payment details in the background (so the
- // payment is recorded) without opening Venmo.
- submitDetailsInBackground(name,sel,c);
- recordPayment(name,sel,c);
- $("formNote").textContent="Done — your payment details were sent.";
-};
+// "Already paid" and "Pay in person": send the payment details in the
+// background (so the payment is recorded) without opening Venmo.
+function recordOnlyHandler(){
+ return ()=>{
+  const c=calc(); if(c.items<=0){$("payErr").textContent="Pick at least one item first.";return}
+  const name=$("name").value.trim(); if(!name){$("nameErr").textContent="Please enter your name.";$("name").focus();return}
+  $("nameErr").textContent=""; $("payErr").textContent="";
+  const sel=pickedItems();
+  submitDetailsInBackground(name,sel,c);
+  recordPayment(name,sel,c);
+  $("formNote").textContent="Done — your payment details were sent.";
+ };
+}
+$("alreadyPaidBtn").onclick=recordOnlyHandler();
+$("inPersonBtn").onclick=recordOnlyHandler();
 $("name").addEventListener("input",()=>{$("nameErr").textContent=""});
 render();
 </script></body></html>
