@@ -102,6 +102,9 @@ const ITEMS = [
 const picks = {}; ITEMS.forEach(i=>picks[i.id]=0);
 const paidQty = {}; ITEMS.forEach(i=>paidQty[i.id]=0);
 let paid = []; // {key,name,items:[{name,qty,cat}],amount}
+// Base paid entries baked in from form responses (Muse updates this as payments land)
+paid.push({key:"md",name:"md",items:[{name:"Kids Cheese Pizza (Fries)",qty:1,cat:"food",price:10.99},{name:"Reese's Ice Cream Cookie",qty:1,cat:"food",price:12.99}],amount:31.89});
+paid.forEach(p=>p.items.forEach(x=>{const it=ITEMS.find(i=>i.name===x.name); if(it) paidQty[it.id]+=x.qty;}));
 const $=id=>document.getElementById(id), money=n=>"$"+n.toFixed(2), cents=n=>Math.round(n*100)/100;
 function remaining(i){return i.qty-paidQty[i.id]}
 function pickedItems(){return ITEMS.filter(i=>picks[i.id]>0).map(i=>({name:i.name,qty:picks[i.id],cat:i.cat,price:i.price}))}
